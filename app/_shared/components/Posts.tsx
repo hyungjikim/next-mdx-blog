@@ -15,7 +15,11 @@ export function Posts({ posts }: PostsProps) {
               {title}
             </span>
             <span className="text-gray-500">
-              {new Intl.DateTimeFormat("ko-KR").format(new Date(publishDate))}
+              {new Intl.DateTimeFormat("ko-KR", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              }).format(new Date(publishDate))}
             </span>
           </Link>
         </li>
