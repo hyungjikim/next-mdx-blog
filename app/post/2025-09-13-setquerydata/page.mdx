@@ -1,0 +1,151 @@
+export const metadata = {
+  title: "React Query에서 mutate 이후 일부 필드만 최신화하기",
+  publishDate: "2025-09-13T00:00:00Z",
+  alternates: {
+    canonical: "/post/2025-09-13-setquerydata",
+  },
+};
+
+# `mutate` 이후에 전체 데이터를 `refetch하지` 않고 일부 필드만 최신화하기
+
+<br />
+
+React Query를 사용할 때, mutate 이후 데이터를 어떻게 최신화할지 고민해 보았다.  
+특히 엔드포인트 응답이 크고 필드가 많을 때는 전체를 다시 `refetch하지` 않고 변경된 일부 필드만 fresh하게 유지하고 싶을 수 있다.
+
+이번 글에서는 실제 사례를 바탕으로 `refetch/invalidateQueries` vs `setQueryData` 접근 방식을 비교하고, 어떤 상황에서 각각 유리한지 정리해보려고 한다.
+
+## 배경
+
+사내 프로젝트는 react-query 로 서버 데이터를 관리한다.  
+영화나 드라마 작품에 대한 상세 페이지를 렌더링하기 위해 `/a` 엔드포인트를 호출하는데, 응답에는 약 40개 필드와 nested 필드까지 더 포함된다.
+
+최근 상세 페이지 내에서 유저가 작품에 대해 리액션을 등록할 수 있는 기능이 추가되었다.  
+사용자는 별 모양 UI 5개를 클릭하여 0~5점까지 0.5점 단위로 평가할 수 있다.
+
+관련 엔드포인트는 다음과 같다.
+
+- `/a` : 작품 상세 전체 데이터 (리액션 포함)
+
+- `/b` : 리액션 등록 (PATCH)
+
+- `/c` : 리액션만 조회 (GET)
+
+## 접근 1: `mutate` 이후 `refetch`
+
+처음에는 `mutate` 성공 시 `/c`를 다시 불러 리액션만 업데이트하는 방식을 사용했다.
+
+```tsx
+// `/a` 엔드포인트 반환값 중 리액션 필드를 initialData 로 전달받음
+
+const ReactionSection = ({ initialData }) => {
+  const { mutate } = useMutation({
+    mutationFn: patchRating, // `/b` 엔드포인트 호출
+  });
+
+  const { data: stars, refetch } = useQuery({
+    queryKey: ["get-stars"],
+    queryFn: fetchStars, // `/c` 엔드포인트 호출
+    enabled: false, // mutate 호출 전까지 해당 쿼리는 호출되지 않아야 한다. (네트워크 낭비를 막기 위함)
+  });
+
+  const handleClickStar = (targetRating) => {
+    mutate(targetRating, {
+      onSuccess: () => refetch(),
+    });
+  };
+
+  return <Stars star={stars ?? initialData} onRating={handleClickStar} />;
+};
+```
+
+### 문제점
+
+1. 네트워크 지연:
+   느린 네트워크에서는 `/b` → `/c` 응답을 기다려야 하므로 UI 반응이 늦게 느껴진다.
+
+2. 코드 복잡도 증가:
+   `initialRating`과`stars` 를 따로 관리해야 하므로 코드 가독성이
+   떨어진다.
+
+3. 확장성 저하:
+   비슷한 요구가 다른 필드에도 생기면 관리 로직이 점점 늘어나고, 복잡도가 높아진다.
+
+## 접근 2: `setQueryData` 로 캐시 직접 수정 ( ✅ 채택 )
+
+최종적으로는 [queryClient.setQueryData](https://tanstack.com/query/latest/docs/reference/QueryClient#queryclientsetquerydata) 를 사용해 `/a` 캐시에서 변경된 필드만 직접 업데이트하는 방식으로 리팩토링했다.
+
+```tsx
+// `/a` 엔드포인트 반환값 중 리액션 필드를 rating 로 전달받음
+
+const ReactionSection = ({ rating }) => {
+  const { mutate } = useMutation({
+    mutationFn: patchRating, // `/b` 엔드포인트 호출
+  });
+
+  const handleClickStar = (targetRating) => {
+    mutate(targetRating, {
+      onSuccess: ({ newRating }) => {
+        queryClient.setQueryData(["get-detail"], (prev) => {
+          if (!prev) return prev;
+          return { ...prev, rating: newRating };
+        });
+      },
+    });
+  };
+
+  return <Stars star={rating} onRating={handleClickStar} />;
+};
+```
+
+### 장점
+
+1. 즉시 반영:
+   네트워크 요청 없이 응답값으로 바로 UI 업데이트 가능
+
+2. 단순한 코드:
+   별도의 `initialData`, `stars` 구분 불필요
+
+3. 유지보수 용이:
+   다른 필드에도 동일한 패턴을 적용할 수 있음
+
+## 왜 Optimistic Update를 쓰지 않았을까?
+
+이번 기능에서는 `Optimistic update`를 고려하지 않았다.  
+그 이유는 데이터 구조와 서버 연산 방식 때문이다.
+
+리액션 등록시 함께 업데이트되는 필드들이 단순히 독립적인 boolean 값이나 숫자가 아니라, 서로 상호 배타적인 로직을 가지기 때문이다.  
+예를 들어 특정 값을 선택하면 다른 값이 자동으로 꺼지거나 초기화되는 식이다.
+
+이런 계산은 클라이언트에서 추정하기보다는 서버에서 일괄적으로 처리한 결과를 신뢰하는 게 안전하다.  
+따라서 `onMutate` 시 클라이언트에서 상태를 직접 예측하기보다는, 서버 응답을 기반으로 `setQueryData` 로 반영하는 방식을 선택했다.
+
+## `setQueryData` 는 만능일까?
+
+이번 사례에서 `setQueryData` 가 가능했던 이유는 다음과 같다.
+
+- `/b` 응답에 **항상 최신 리액션 값이 포함됨이 보장된다.** (백엔드 개발자분과 확인함)
+- 리액션 데이터는 개인별 데이터라 레이스 컨디션 위험이 거의 없다.
+
+하지만 모든 상황에서 이 방법이 통하는 건 아니다.
+
+### `setQueryData` 가 적절한 경우
+
+- 개별 유저 데이터 (좋아요, 북마크, 평가 등)
+- 서버 응답이 항상 최신값임이 보장될 때
+
+### `refetch`, `invalidateQueries` 가 필요한 경우
+
+- 여러 유저가 동시에 수정하는 공용 데이터
+- mutate 응답 직후에도 데이터가 바뀔 수 있는 경우 (레이스 컨디션 가능성)
+- 최신성이 엄격히 보장되어야 할 때
+
+## 결론
+
+데이터 업데이트 전략은 상황에 따라 달라진다.
+
+- `mutate -> refetch / invalidateQueries`: 안전하지만, 네트워크 비용과 지연이 크다.
+- `mutate -> setQueryData`: 빠르고 단순하지만, 응답값의 최신성 보장이 필요하다.
+
+즉, 리액션처럼 개인화된 데이터라면 `setQueryData` 로 UX 를 개선할 수 있다.  
+반대로 다수 유저가 동시에 수정하는 데이터라면 `invalidateQueries` 나 `refetch` 가 더 안전하다.
