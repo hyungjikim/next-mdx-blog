@@ -10,12 +10,16 @@ export const metadata = {
 
 <br />
 
+---
+
 React Query를 사용할 때, mutate 이후 데이터를 어떻게 최신화할지 고민해 보았다.  
 특히 엔드포인트 응답이 크고 필드가 많을 때는 전체를 다시 `refetch` 하지 않고, 변경된 일부 필드만 fresh하게 유지하고 싶을 수 있다.
 
 이번 글에서는 실제 사례를 바탕으로 `refetch/invalidateQueries` vs `setQueryData` 접근 방식을 비교하고, 어떤 상황에서 각각 유리한지 정리해보려고 한다.
 
 ## 배경
+
+---
 
 사내 프로젝트는 React Query 로 서버 데이터를 관리한다.  
 영화나 드라마 작품에 대한 상세 페이지를 렌더링하기 위해 `/a` 엔드포인트를 호출하는데, 응답에는 약 40개 필드와 nested 필드까지 더 포함된다.
@@ -30,6 +34,10 @@ React Query를 사용할 때, mutate 이후 데이터를 어떻게 최신화할�
 - `/b` : 리액션 등록 (PATCH)
 
 - `/c` : 리액션만 조회 (GET)
+
+<br />
+
+---
 
 ## 접근 1: `mutate` 이후 `refetch`
 
@@ -71,6 +79,8 @@ const ReactionSection = ({ initialData }) => {
 3. 확장성 저하:
    다른 필드에도 비슷한 요구사항이 생기면 관리 로직이 점점 늘어나고, 복잡도가 높아진다.
 
+---
+
 ## 접근 2: `setQueryData` 로 캐시 직접 수정 ( ✅ 채택 )
 
 최종적으로는 [queryClient.setQueryData](https://tanstack.com/query/latest/docs/reference/QueryClient#queryclientsetquerydata) 를 사용해 `/a` 캐시에서 변경된 리액션 필드만 직접 업데이트하는 방식으로 리팩토링했다.
@@ -109,6 +119,8 @@ const ReactionSection = ({ rating }) => {
 3. 유지보수 용이:
    다른 필드에도 동일한 패턴을 적용할 수 있음
 
+---
+
 ## 왜 Optimistic Update를 쓰지 않았을까?
 
 이번 기능에서는 `Optimistic update`를 고려하지 않았다.  
@@ -120,6 +132,8 @@ const ReactionSection = ({ rating }) => {
 이런 계산은 클라이언트에서 추정하기보다는 서버에서 일괄적으로 처리한 결과를 신뢰하는 게 안전하다.  
 따라서 `onMutate` 시 클라이언트에서 상태를 직접 예측하기보다는, 서버 응답을 기반으로 `setQueryData` 로 반영하는 방식을 선택했다.
 
+---
+
 ## `setQueryData` 는 만능일까?
 
 이번 사례에서 `setQueryData` 가 가능했던 이유는 다음과 같다.
@@ -127,7 +141,7 @@ const ReactionSection = ({ rating }) => {
 - `/b` 응답이 **항상 최신화된 리액션 데이터를 보장된다.** (백엔드 개발자분과 확인함)
 - 리액션 데이터는 개인별 데이터라 레이스 컨디션 위험이 거의 없다.
 
-하지만 모든 상황에서 이 방법이 통하는 건 아니다.
+하지만, 모든 상황에서 이 방법이 통하는건 아니다.
 
 ### `setQueryData` 가 적절한 경우
 
@@ -139,6 +153,8 @@ const ReactionSection = ({ rating }) => {
 - 여러 유저가 동시에 수정하는 공용 데이터
 - `mutate` 응답 직후에도 데이터가 바뀔 수 있는 경우 (레이스 컨디션 가능성)
 - 최신성이 엄격히 보장되어야 할 때
+
+---
 
 ## 결론
 
