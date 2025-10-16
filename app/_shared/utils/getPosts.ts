@@ -19,9 +19,11 @@ export const getPosts = async (): Promise<Post[]> => {
     })
   );
 
-  posts.sort(
+  const publishedPosts = posts.filter(({ published }) => published === true);
+
+  publishedPosts.sort(
     (a, b) =>
       new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime()
   );
-  return posts;
+  return publishedPosts;
 };

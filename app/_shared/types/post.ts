@@ -6,4 +6,5 @@ export interface Post {
     canonical: string;
   };
   slug: string;
+  published?: boolean;
 }
