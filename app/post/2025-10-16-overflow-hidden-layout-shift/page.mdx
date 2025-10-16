@@ -1,0 +1,147 @@
+export const metadata = {
+  title:
+    "BottomSheet, Modal 이 열릴 때 overflow:hidden으로 인한 Layout Shift 문제와 환경별 차이",
+  publishDate: "2025-10-16T00:00:00Z",
+  alternates: {
+    canonical: "/post/2025-10-16-overflow-hidden-layout-shift",
+  },
+  published: false,
+};
+
+# 문제 상황: BottomSheet 열림 시 화면이 흔들린다
+
+BottomSheet나 Modal을 열 때 보통 `overflow: hidden`을 적용해 배경 스크롤을 막는다.  
+그런데 이 과정에서 화면 전체가 좌우로 미세하게 흔들리는 현상이 발생했다.
+
+이러한 레이아웃 시프트(Layout Shift)는 사용자에게 불안정한 화면 경험을 주며,  
+라이트하우스나 코어 웹 바이탈과 같은 성능 지표에도 부정적인 영향을 주기 때문에 개선이 필요하다고 느꼈다.
+
+---
+
+# 원인: 스크롤바 폭이 레이아웃에 영향을 준다
+
+브라우저는 기본적으로 스크롤바 폭만큼 콘텐츠 영역을 줄여서 렌더링한다.  
+따라서 모달이 열리면서 `<body>`에 `overflow: hidden`이 적용되면 스크롤바가 사라지고, 그만큼의 폭이 늘어나면서 레이아웃이 이동한다.
+
+모달이 닫히면 다시 스크롤바가 생기고, 그 폭만큼 콘텐츠 영역이 줄어들어 화면이 좌측으로 이동한 것처럼 보인다.
+
+---
+
+# 환경별 차이: Overlay Scrollbar vs Classic Scrollbar
+
+맥북 내장 디스플레이에서는 layout shift가 감지되지 않았다.  
+이는 macOS가 기본적으로 **overlay scrollbar**를 사용하기 때문이다.
+
+overlay scrollbar는 스크롤하는 동안에만 표시되며, 콘텐츠 영역의 공간을 차지하지 않는다.
+
+맥북을 확인해보면 `설정 > 화면 모드 > 스크롤 막대 보기` 옵션에서 “마우스 또는 트랙패드에 따라 자동으로”가 기본 선택되어 있는데, 이것이 overlay scrollbar 동작 방식이다.
+
+반면, **classic scrollbar**는 스크롤 트랙이 콘텐츠 영역의 일부를 차지한다.  
+흥미롭게도, 맥북에 외부 모니터(HDMI 등)를 연결하면 classic scrollbar로 전환되어 스크롤바가 항상 표시된다.  
+이때는 모달을 열고 닫을 때 layout shift가 훨씬 두드러지게 발생했다.
+
+> [overlay scrollbar vs classic scrollbar — Chrome Dev Docs](https://developer.chrome.com/docs/css-ui/scrollbar-styling#classic_and_overlay_scrollbars)
+
+즉, 같은 코드라도 **디스플레이 환경, 스크롤바 렌더링 방식, OS 설정**에 따라 shift 체감이 달라진다.
+
+---
+
+# `scrollbar-gutter: stable`의 한계
+
+[scrollbar-gutter / MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/scrollbar-gutter)
+
+CSS 속성 `scrollbar-gutter: stable`은  
+`overflow: auto | scroll | hidden` 상태에서도 스크롤바 공간을 미리 확보해 layout shift를 방지하도록 설계된 속성이다.
+
+하지만 이 상황에서는 이 속성만으로 문제를 해결할 수 없었다.
+
+브라우저는 `body`의 overflow를 viewport에 전파(propagate)하지만, `scrollbar-gutter`는 `body`에서 viewport로 전파되지 않기 때문이다.
+
+> As for the overflow property, when scrollbar-gutter is set on the root element, the user agent must apply it to the viewport instead, and the used value on the root element itself is scrollbar-gutter: auto. However, unlike the overflow property, the user agent must not propagate scrollbar-gutter from the HTML body element.  
+> [scrollbar-gutter-property / CSS Overflow Module Level 3](https://drafts.csswg.org/css-overflow/#scrollbar-gutter-property)
+
+즉, BottomSheet나 Modal처럼 `<body>`에 `overflow: hidden`을 적용하는 경우에는 `scrollbar-gutter` 속성만으로 스크롤바 영역 고정을 보장할 수 없다.
+
+따라서 JS를 이용해 스크롤바 폭을 계산하고 `padding-right`로 보정하는 방식이 현실적이고 안정적인 해결책이다.
+
+---
+
+# 해결 방안: `useLayoutEffect`를 사용한 JS 기반 스크롤바 폭 보정
+
+핵심 아이디어는 **스크롤바가 사라질 때 그 폭만큼 `padding-right`를 추가해 레이아웃 폭을 유지하는 것**이다.
+
+1. `body`에 `overflow: hidden`을 적용할 때 스크롤바 폭을 계산해 `padding-right` 추가
+2. 고정 포지션(예: BottomSheet) 레이어는 `body`에 `padding-right`가 생긴 만큼 `margin-left: -scrollbarWidth`로 보정
+   - `body`에 `padding-right`가 생기면 문서의 중앙 정렬 등이 어긋나므로, 고정 레이어를 반대 방향으로 이동시켜 시각적 정렬을 유지한다.
+3. 보정 로직은 렌더링 전에 적용되어야 하므로 `useLayoutEffect`에서 실행
+   - [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect) 는 브라우저가 **페인트하기 전에 동기적으로 실행**되므로, layout shift가 한 프레임이라도 사용자에게 노출되는 것을 방지할 수 있다.
+
+---
+
+### Before
+
+```ts
+// BottomSheet.tsx (Before)
+import { useEffect } from "react";
+
+export const getScrollbarWidth = (): number =>
+  window.innerWidth - document.documentElement.clientWidth;
+
+const disableBodyScroll = () => {
+  const scrollbarWidth = getScrollbarWidth();
+
+  document.body.style.overflow = "hidden";
+  if (scrollbarWidth > 0) {
+    document.body.style.paddingRight = `${scrollbarWidth}px`;
+  }
+};
+
+const enableBodyScroll = () => {
+  document.body.style.overflow = "auto";
+  document.body.style.paddingRight = "";
+};
+
+export default function BottomSheet() {
+  useEffect(() => {
+    disableBodyScroll();
+
+    return () => {
+      enableBodyScroll();
+    };
+  }, []);
+
+  // 이하 BottomSheet 관련 코드
+}
+```
+
+### After
+
+```ts
+// BottomSheet.tsx (After)
+import { useLayoutEffect } from "react";
+
+export default function BottomSheet() {
+  useLayoutEffect(() => {
+    disableBodyScroll();
+
+    return () => {
+      enableBodyScroll();
+    };
+  }, []);
+
+  return (
+    /* body에 padding-right가 생기면 레이아웃이 오른쪽으로 밀릴 수 있으므로
+       고정 레이어 자체를 반대 방향으로 이동시켜 정렬을 유지한다. */
+    <div style={{ marginLeft: `-${scrollbarWidth}` }}>
+      {/* 이하 BottomSheet 관련 코드 */}
+    </div>
+  );
+}
+```
+
+# 마무리
+
+layout shift 문제는 단순히 CSS 속성 하나로 해결되지 않는 경우가 많다.
+특히 `<body>`의 overflow를 제어해야 하는 Modal, BottomSheet 환경에서는 JS 기반 보정이 여전히 실용적이다.
+
+향후 scrollbar-gutter의 동작 범위가 viewport까지 확장된다면, 이런 보정 코드도 줄어들 것으로 기대된다.
