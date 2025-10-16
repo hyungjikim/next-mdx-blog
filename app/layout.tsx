@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { Noto_Sans } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+import { SITE_URL } from "./_shared/constants/site";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://kimhyungji.vercel.app"),
+  metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: "/",
   },
