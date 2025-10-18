@@ -36,7 +36,7 @@ overlay scrollbar는 스크롤하는 동안에만 표시되며, 콘텐츠 영역
 맥북을 확인해보면 `설정 > 화면 모드 > 스크롤 막대 보기` 옵션에서 “마우스 또는 트랙패드에 따라 자동으로”가 기본 선택되어 있는데, 이것이 overlay scrollbar 동작 방식이다.
 
 반면, **classic scrollbar**는 스크롤 트랙이 콘텐츠 영역의 일부를 차지한다.  
-흥미롭게도, 맥북에 외부 모니터(HDMI 등)를 연결하면 classic scrollbar로 전환되어 스크롤바가 항상 표시된다.  
+흥미롭게도, 맥북에 마우스나 트랙패드를 연결하면 classic scrollbar로 전환되는걸 확인할 수 있었다.  
 이때는 모달을 열고 닫을 때 layout shift가 훨씬 두드러지게 발생했다.
 
 > [overlay scrollbar vs classic scrollbar — Chrome Dev Docs](https://developer.chrome.com/docs/css-ui/scrollbar-styling#classic_and_overlay_scrollbars)
@@ -45,7 +45,7 @@ overlay scrollbar는 스크롤하는 동안에만 표시되며, 콘텐츠 영역
 
 ---
 
-# `scrollbar-gutter: stable`의 한계
+# scrollbar-gutter: stable의 한계
 
 > [scrollbar-gutter / MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/scrollbar-gutter)
 
@@ -68,6 +68,13 @@ CSS 속성 `scrollbar-gutter: stable`은 `overflow: auto | scroll | hidden` 상�
 
 > As for the overflow property, when scrollbar-gutter is set on the root element, the user agent must apply it to the viewport instead, and the used value on the root element itself is scrollbar-gutter: auto. However, unlike the overflow property, the user agent must not propagate scrollbar-gutter from the HTML body element.  
 > [scrollbar-gutter-property / CSS Overflow Module Level 3](https://drafts.csswg.org/css-overflow/#scrollbar-gutter-property)
+
+그렇다면 루트 요소인 `<html>`에 `scrollbar-gutter: stable`를 설정하면 layout shift를 완화할 수 있을까? 꼭 그렇지만은 않다.
+
+이 방식은 스크롤이 필요 없는 페이지에서도 모달을 열 때 스크롤 영역이 생길 수 있는 문제가 있다.  
+또한, `<html>`은 문서 전체를 감싸는 루트 역할을 하고, 실제 콘텐츠를 포함하는 영역은 `<body>`이므로, 레이아웃을 제어할 때 일반적으로 `<body>`를 대상으로 삼는다.
+
+따라서, `<html>` 에 `scrollbar-gutter: stable`를 적용하는 방식은 기술적으로 정확하지 않을 수 있으며, 코드 맥락상 어색하게 느껴질 수 있다.
 
 ---
 
