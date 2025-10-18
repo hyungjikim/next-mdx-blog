@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     template: "%s | 형지",
   },
   description: "Hyungji Blog 🐈",
+  verification: {
+    google: "tG7FHMfv6ogz5e838LeM6QwEBZtiVFHQXaM1WoVnUqw",
+  },
 };
 
 const notoSans = Noto_Sans({
