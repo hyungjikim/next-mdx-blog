@@ -1,3 +1,7 @@
+import Image from "next/image";
+import noLayoutShift from "./assets/no-layout-shift.webp";
+import layoutShift from "./assets/layout-shift.webp";
+
 export const metadata = {
   title:
     "Modal, BottomSheet 열릴 때 overflow:hidden으로 인한 Layout Shift 문제",
@@ -12,6 +16,8 @@ export const metadata = {
 
 Modal 혹은 BottomSheet 을 열 때 보통 `overflow: hidden`을 적용해 배경 스크롤을 막는다.  
 그런데 이 과정에서 화면 전체가 좌우로 미세하게 흔들리는 현상이 발생했다.
+
+<Image src={layoutShift} alt="Modal Layout Shift" width={600} height={400} />
 
 이러한 레이아웃 시프트(Layout Shift)는 사용자에게 불안정한 화면 경험을 주며, 라이트하우스나 코어 웹 바이탈과 같은 성능 지표에도 부정적인 영향을 주기 때문에 개선이 필요하다고 느꼈다.
 
@@ -88,29 +94,38 @@ CSS 속성 `scrollbar-gutter: stable`은 `overflow: auto | scroll | hidden` 상�
 3. 보정 로직은 렌더링 전에 적용되어야 하므로 `useLayoutEffect`에서 실행
    - [useLayoutEffect](https://react.dev/reference/react/useLayoutEffect) 는 브라우저가 **페인트하기 전에 동기적으로 실행**되므로, layout shift가 한 프레임이라도 사용자에게 노출되는 것을 방지할 수 있다.
 
+<Image
+  src={noLayoutShift}
+  alt="Modal No Layout Shift"
+  width={600}
+  height={400}
+/>
+
 ---
+
+> 아래 코드는 설명을 위해 작성한 예제입니다.
 
 ### Before
 
-```ts
+```tsx
 // Modal.tsx (Before)
 import { useEffect } from "react";
 
-const disableBodyScroll = () => {
+const lockScroll = () => {
   document.body.style.overflow = "hidden";
 };
 
-const enableBodyScroll = () => {
+const unlockScroll = () => {
   document.body.style.overflow = "auto";
   document.body.style.paddingRight = "";
 };
 
 export default function Modal() {
   useEffect(() => {
-    disableBodyScroll();
+    lockScroll();
 
     return () => {
-      enableBodyScroll();
+      unlockScroll();
     };
   }, []);
 
@@ -120,52 +135,53 @@ export default function Modal() {
 
 ### After
 
-```ts
+```tsx
 import { useState, useLayoutEffect } from "react";
 
-const getScrollbarWidth = () => {
-  // 대부분 데스크탑 환경에서만 의미 있음
-  // 모바일/overlay scrollbar 환경에서는 0 반환
+// 스크롤바 영역 계산
+const computeScrollbarWidth = () => {
+  if (typeof window === "undefined") return 0;
   return window.innerWidth - document.documentElement.clientWidth;
 };
 
-const disableBodyScroll = () => {
-  const scrollbarWidth = getScrollbarWidth();
-
+// body 스크롤 잠금
+const lockScroll = (width: number) => {
+  if (typeof document === "undefined") return;
   document.body.style.overflow = "hidden";
-  if (scrollbarWidth > 0) {
-    document.body.style.paddingRight = `${scrollbarWidth}px`;
-  }
+  if (width > 0) document.body.style.paddingRight = `${width}px`;
 };
 
-const enableBodyScroll = () => {
-  document.body.style.overflow = "auto";
+// body 스크롤 잠금 해제
+const unlockScroll = () => {
+  if (typeof document === "undefined") return;
+  document.body.style.overflow = "";
   document.body.style.paddingRight = "";
 };
 
-export default function Modal() {
-  const [scrollbarWidth, setScrollbarWidth] = useState(0);
+export default function DemoModal() {
+  const [scrollGap, setScrollGap] = useState(0);
 
   useLayoutEffect(() => {
-    // 1. 스크롤 막기 + padding-right 적용
-    disableBodyScroll();
-
-    // 2. 실제 적용된 padding-right 값 읽어서 state로 저장
-    const paddingRight = document.body.style.paddingRight || "";
-    setScrollbarWidth(Number(paddingRight.replace("px", "") || 0));
+    const width = computeScrollbarWidth();
+    lockScroll(width);
+    setScrollGap(width);
 
     return () => {
-      // 3. 닫을 때 원래 상태로 복원
-      enableBodyScroll();
-      setScrollbarWidth(0);
+      unlockScroll();
+      setScrollGap(0);
     };
   }, []);
 
   return (
-    // 4. 레이어 반대 방향으로 이동시켜 중앙 정렬 유지
-    <div style={{ marginLeft: `-${scrollbarWidth}px` }}>
-      {/* Modal 콘텐츠 */}
-    </div>
+    <>
+      {/* Modal 컴포넌트 내부에 화면 전체를 덮는 Dimmer 가 있는 경우, 해당 영역은 보정할 필요 없음 */}
+      <BackgroundOverlay />
+      <ModalWrapper style={{ marginLeft: `-${scrollGap}px` }}>
+        {/* 여기서부터 실제 Modal 콘텐츠 */}
+        <ModalHeader>제목</ModalHeader>
+        <ModalBody>내용</ModalBody>
+      </ModalWrapper>
+    </>
   );
 }
 ```
