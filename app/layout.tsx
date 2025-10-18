@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "./_shared/constants/site";
@@ -19,9 +19,36 @@ export const metadata: Metadata = {
   },
 };
 
-const notoSans = Noto_Sans({
-  variable: "--font-noto-sans",
-  subsets: ["latin"],
+export const spoqaHanSans = localFont({
+  src: [
+    {
+      path: "../assets/fonts/SpoqaHanSansNeo-Thin.woff2",
+      weight: "100",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/SpoqaHanSansNeo-Light.woff2",
+      weight: "300",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/SpoqaHanSansNeo-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/SpoqaHanSansNeo-Medium.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/SpoqaHanSansNeo-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  display: "swap",
+  variable: "--font-spoqa-han-sans",
 });
 
 export default function RootLayout({
@@ -30,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${notoSans.className}`}>
+    <html lang="en" className={`${spoqaHanSans.className}`}>
       <body className="antialiased tracking-tight">
         <div className="min-h-screen flex flex-col justify-between pt-0 md:pt-8 p-8 dark:bg-zinc-950 bg-white text-gray-900 dark:text-zinc-200">
           <main className="max-w-[70ch] mx-auto w-full space-y-6">
