@@ -1,6 +1,7 @@
 import Image from "next/image";
 import noLayoutShift from "./assets/no-layout-shift.webp";
 import layoutShift from "./assets/layout-shift.webp";
+import htmlScrollbarGutter from "./assets/html-scrollbar-gutter.webp";
 
 export const metadata = {
   title:
@@ -77,7 +78,15 @@ CSS 속성 `scrollbar-gutter: stable`은 `overflow: auto | scroll | hidden` 상�
 
 그렇다면 루트 요소인 `<html>`에 `scrollbar-gutter: stable`를 설정하면 layout shift를 완화할 수 있을까? 꼭 그렇지만은 않다.
 
-이 방식은 스크롤이 필요 없는 페이지에서도 모달을 열 때 스크롤 영역이 생길 수 있는 문제가 있다.  
+이 방식은 아래와 같이 스크롤이 필요 없는 페이지에서도 모달을 열 때 스크롤 영역이 생길 수 있는 문제가 있다.
+
+<Image
+  src={htmlScrollbarGutter}
+  alt="HTML Scrollbar Gutter"
+  width={600}
+  height={400}
+/>
+
 또한, `<html>`은 문서 전체를 감싸는 루트 역할을 하고, 실제 콘텐츠를 포함하는 영역은 `<body>`이므로, 레이아웃을 제어할 때 일반적으로 `<body>`를 대상으로 삼는다.
 
 따라서, `<html>` 에 `scrollbar-gutter: stable`를 적용하는 방식은 기술적으로 정확하지 않을 수 있으며, 코드 맥락상 어색하게 느껴질 수 있다.
