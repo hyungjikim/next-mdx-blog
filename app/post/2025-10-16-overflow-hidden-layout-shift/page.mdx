@@ -18,7 +18,13 @@ export const metadata = {
 Modal 혹은 BottomSheet 을 열 때 보통 `overflow: hidden`을 적용해 배경 스크롤을 막는다.  
 그런데 이 과정에서 화면 전체가 좌우로 미세하게 흔들리는 현상이 발생했다.
 
-<Image src={layoutShift} alt="Modal Layout Shift" width={600} height={400} />
+<Image
+  src={layoutShift}
+  alt="Modal Layout Shift"
+  width={600}
+  height={400}
+  unoptimized
+/>
 
 이러한 레이아웃 시프트(Layout Shift)는 사용자에게 불안정한 화면 경험을 주며, 라이트하우스나 코어 웹 바이탈과 같은 성능 지표에도 부정적인 영향을 주기 때문에 개선이 필요하다고 느꼈다.
 
@@ -85,6 +91,7 @@ CSS 속성 `scrollbar-gutter: stable`은 `overflow: auto | scroll | hidden` 상�
   alt="HTML Scrollbar Gutter"
   width={600}
   height={400}
+  unoptimized
 />
 
 또한, `<html>`은 문서 전체를 감싸는 루트 역할을 하고, 실제 콘텐츠를 포함하는 영역은 `<body>`이므로, 레이아웃을 제어할 때 일반적으로 `<body>`를 대상으로 삼는다.
@@ -108,6 +115,7 @@ CSS 속성 `scrollbar-gutter: stable`은 `overflow: auto | scroll | hidden` 상�
   alt="Modal No Layout Shift"
   width={600}
   height={400}
+  unoptimized
 />
 
 ---
