@@ -3,6 +3,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "./_shared/constants/site";
 import { spoqaHanSans } from "@/assets/fonts";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -51,12 +52,33 @@ function Footer() {
             href={link.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors duration-200"
+            className="text-gray-200 dark:text-gray-500 hover:text-gray-400 transition-colors duration-200"
           >
             {link.name}
           </a>
         ))}
       </div>
+      <small className="text-gray-200 dark:text-gray-500 text-xs">
+        Emoji graphics by
+        <Link
+          href="https://twemoji.twitter.com/license"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-200 dark:text-gray-500 hover:text-gray-400 transition-colors duration-200"
+        >
+          Twemoji
+        </Link>
+        , licensed under
+        <Link
+          href="https://creativecommons.org/licenses/by/4.0/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-200 dark:text-gray-500 hover:text-blue-500 transition-colors duration-200"
+        >
+          (CC-BY 4.0)
+        </Link>
+        .
+      </small>
     </footer>
   );
 }
